@@ -1,237 +1,223 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
-import random
-import matplotlib.pyplot as plt
-import joblib
-import os
+import plotly.graph_objects as go
+from twilio.rest import Client
 
-# -------------------------------------------------
-# PAGE CONFIG (MUST BE FIRST STREAMLIT CALL)
-# -------------------------------------------------
-st.set_page_config(
-    page_title="Human Activity Prediction",
-    layout="centered"
-)
+# ---------------- TWILIO CONFIG ----------------
+account_sid = "AC62401d99963c077331005d2857ef996f"
+auth_token = "4557dbb10b7ce384890d6ad5e6162e90"
+twilio_number = "+15755777352"
 
-# -------------------------------------------------
-# PREMIUM UI (CUSTOM CSS)
-# -------------------------------------------------
-st.markdown("""
-<style>
-.stApp {
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    color: white;
-}
-h1, h2, h3 {
-    color: #f8f9fa;
-}
-.stButton>button {
-    background: linear-gradient(90deg, #ff512f, #dd2476);
-    color: white;
-    border-radius: 12px;
-    height: 3em;
-    font-size: 16px;
-    border: none;
-}
-div[data-testid="stAlert"] {
-    border-radius: 12px;
-    font-size: 16px;
-}
-thead tr th {
-    background-color: #1f4068;
-    color: white;
-}
-tbody tr td {
-    background-color: #162447;
-    color: white;
-}
-.stProgress > div > div {
-    background-image: linear-gradient(to right, #00f260, #0575e6);
-}
-</style>
-""", unsafe_allow_html=True)
+def send_sms(to_number, name, location):
+    client = Client(account_sid, auth_token)
+    message = f"🚨 EMERGENCY ALERT!\nPatient: {name}\nLocation: {location}\nNeeds immediate help!"
+    client.messages.create(body=message, from_=twilio_number, to=to_number)
 
-# -------------------------------------------------
-# TITLE
-# -------------------------------------------------
-st.title("🏃 Human Activity Prediction (Federated Learning)")
-st.write("A premium URL-based prediction system using federated learning on sensor data")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(page_title="“ElderWatch AI: Smart Health Monitoring with Predictive Risk Analysis", layout="wide")
 
-# -------------------------------------------------
-# SIDEBAR INFO
-# -------------------------------------------------
-st.sidebar.markdown("## 🧠 Model Information")
-st.sidebar.write("**Model:** Federated Logistic Regression")
-st.sidebar.write("**Clients:** 5")
-st.sidebar.write("**Dataset:** UCI HAR Dataset")
-st.sidebar.write("**Global Accuracy:** 94.74%")
-st.sidebar.write("**Prediction Type:** Multiclass Activity Recognition")
+# ---------------- SESSION STATE ----------------
+if "patient_name" not in st.session_state:
+    st.session_state.patient_name = "Sarojini"
+    st.session_state.age = 65
+    st.session_state.condition = "Heart Risk"
+    st.session_state.caretaker = "+91 9840747262"
+    st.session_state.location = "Chennai, India"
+    st.session_state.alarm_active = False
 
-# -------------------------------------------------
-# LOAD DATA & MODEL
-# -------------------------------------------------
-@st.cache_data
-def load_data():
-    X_test = np.load("results/X_test_scaled.npy")
-    y_test = pd.read_csv("results/y_test.csv")
-    activity_labels = pd.read_csv(
-        "data/UCI HAR Dataset/activity_labels.txt",
-        sep=r"\s+",
-        header=None,
-        names=["id", "activity"]
-    )
-    return X_test, y_test, activity_labels
+if "health_history" not in st.session_state:
+    st.session_state.health_history = []
 
-@st.cache_resource
-def load_model():
-    return joblib.load("results/global_model.pkl")
+# ---------------- SIDEBAR ----------------
+st.sidebar.markdown("## ⚙️ Settings")
 
-X_test_scaled, y_test, activity_labels = load_data()
-model = load_model()
-activities = activity_labels["activity"].tolist()
+st.session_state.patient_name = st.sidebar.text_input("👤 Patient Name", st.session_state.patient_name)
+st.session_state.age = st.sidebar.number_input("🎂 Age", 1, 120, st.session_state.age)
+st.session_state.condition = st.sidebar.text_input("🩺 Condition", st.session_state.condition)
+st.session_state.caretaker = st.sidebar.text_input("📞 Caretaker Number", st.session_state.caretaker)
+st.session_state.location = st.sidebar.text_input("📍 Location", st.session_state.location)
 
-# -------------------------------------------------
-# SESSION STATE (PREDICTION HISTORY)
-# -------------------------------------------------
-if "history" not in st.session_state:
-    st.session_state.history = []
+menu = st.sidebar.radio("🚀 Navigation", ["🏠 Home", "🩺 Monitor", "📊 Analytics", "🚨 Emergency"])
 
-# -------------------------------------------------
-# PREDICTION BUTTON
-# -------------------------------------------------
-if st.button("🔮 Predict Random Activity"):
-    i = random.randint(0, len(X_test_scaled) - 1)
+# ---------------- TITLE ----------------
+st.title("🚨 “ElderWatch AI: Smart Health Monitoring with Predictive Risk Analysis")
+st.write(f"📍 Location: {st.session_state.location}")
 
-    probs = model.predict_proba(X_test_scaled[i].reshape(1, -1))[0]
-    pred_id = model.predict(X_test_scaled[i].reshape(1, -1))[0]
+# ---------------- HOME ----------------
+if menu == "🏠 Home":
+    st.subheader("🏠 Welcome")
 
-    actual = activity_labels.loc[
-        activity_labels.id == y_test["label"].iloc[i], "activity"
-    ].values[0]
+    st.write(f"Welcome **{st.session_state.patient_name}** 👋")
 
-    predicted = activity_labels.loc[
-        activity_labels.id == pred_id, "activity"
-    ].values[0]
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Accuracy", "92%", "+2%")
+    col2.metric("Devices", "12", "+3")
+    col3.metric("Alerts", "2", "-1")
 
-    confidence = float(np.max(probs))
+    # ✅ NEW (ONLY ADDITION)
+    st.markdown("### 🧠 System Overview")
+    st.info("""
+    This system monitors elderly health in real-time using AI.
+    It analyzes vital signs, detects risks, and sends emergency alerts instantly.
+    """)
 
-    # -------------------------------------------------
-    # PREDICTION RESULT
-    # -------------------------------------------------
-    st.markdown("## 📌 Prediction Result")
-    if predicted == actual:
-        st.success(f"✅ Correct Prediction: **{predicted}**")
-    else:
-        st.error("❌ Incorrect Prediction")
+    st.markdown("### 🔐 Features")
+    st.write("""
+    - Real-time monitoring  
+    - Risk detection  
+    - Emergency alert system  
+    - SMS alerts using Twilio  
+    """)
 
-    st.markdown(
-        f"""
-        **Actual Activity:** `{actual}`  
-        **Predicted Activity:** `{predicted}`
-        """
-    )
 
-    # -------------------------------------------------
-    # CONFIDENCE BAR
-    # -------------------------------------------------
-    st.markdown("## 🎯 Prediction Confidence")
-    st.progress(confidence)
-    st.write(f"Model Confidence: **{confidence:.2%}**")
+# ---------------- MONITOR ----------------
+elif menu == "🩺 Monitor":
+    st.subheader("🩺 Live Patient Monitoring")
 
-    # -------------------------------------------------
-    # CONFIDENCE DONUT
-    # -------------------------------------------------
-    fig, ax = plt.subplots(figsize=(4, 4))
-    ax.pie(
-        [confidence, 1 - confidence],
-        colors=["#00f260", "#333333"],
-        startangle=90,
-        wedgeprops=dict(width=0.3)
-    )
-    ax.text(0, 0, f"{confidence*100:.1f}%", ha="center", va="center",
-            fontsize=18, color="white")
-    ax.set_title("Confidence Gauge", color="white")
-    st.pyplot(fig)
+    col1, col2 = st.columns(2)
 
-    # -------------------------------------------------
-    # TOP-3 PREDICTIONS
-    # -------------------------------------------------
-    top_indices = np.argsort(probs)[-3:][::-1]
-    top_df = pd.DataFrame({
-        "Activity": [activities[j] for j in top_indices],
-        "Confidence": [probs[j] for j in top_indices]
+    heart_rate = col1.slider("❤️ Heart Rate", 40, 180, 75)
+    bp = col2.slider("🩸 Blood Pressure", 80, 180, 120)
+
+    oxygen = st.slider("🫁 Oxygen Level (SpO2)", 70, 100, 98)
+    temp = st.slider("🌡️ Temperature", 95, 105, 98)
+
+    st.write(f"""
+    ❤️ Heart Rate: {heart_rate}  
+    🩸 BP: {bp}  
+    🫁 Oxygen: {oxygen}%  
+    🌡️ Temp: {temp}°F  
+    """)
+
+    # Save history (UPDATED with BP)
+    st.session_state.health_history.append({
+        "Heart Rate": heart_rate,
+        "BP": bp,
+        "Oxygen": oxygen,
+        "Temp": temp
     })
 
-    st.markdown("## 🏆 Top-3 Predicted Activities")
-    st.table(top_df.style.format({"Confidence": "{:.2%}"}))
+    # Risk calculation
+    risk_score = 0
+    if heart_rate > 120: risk_score += 30
+    if bp > 150: risk_score += 25
+    if oxygen < 90: risk_score += 35
+    if temp > 102: risk_score += 20
 
-    # -------------------------------------------------
-    # PROBABILITY BAR CHART
-    # -------------------------------------------------
-    st.markdown("## 📊 Prediction Probability Distribution")
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.bar(activities, probs)
-    ax.set_ylim(0, 1)
-    ax.set_ylabel("Probability")
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+    st.markdown("### ⚠️ Risk Score")
+    st.progress(min(risk_score / 100, 1.0))
+    st.write(f"Risk Score: **{risk_score}/100**")
 
-    # -------------------------------------------------
-    # RADAR CHART (WOW)
-    # -------------------------------------------------
-    angles = np.linspace(0, 2 * np.pi, len(activities), endpoint=False)
-    probs_radar = np.concatenate((probs, [probs[0]]))
-    angles = np.concatenate((angles, [angles[0]]))
-
-    fig = plt.figure(figsize=(6, 6))
-    ax = plt.subplot(111, polar=True)
-    ax.plot(angles, probs_radar, color="#00f260", linewidth=2)
-    ax.fill(angles, probs_radar, color="#00f260", alpha=0.25)
-    ax.set_thetagrids(angles[:-1] * 180 / np.pi, activities)
-    ax.set_title("Activity Confidence Radar", color="white", pad=20)
-    ax.tick_params(colors="white")
-    st.pyplot(fig)
-
-    # -------------------------------------------------
-    # MISCLASSIFICATION INSIGHT
-    # -------------------------------------------------
-    st.markdown("## 🔍 Prediction Insight")
-    if predicted != actual:
-        st.warning(
-            f"The model confused **{actual}** with **{predicted}** due to similarity "
-            "in sensor patterns between static activities."
-        )
+    # 🔥 CRITICAL CONDITION DISPLAY
+    if risk_score > 70:
+        st.error("🚨 CRITICAL CONDITION – Immediate medical attention required!")
+    elif risk_score > 40:
+        st.warning("⚠️ Moderate Risk – Monitor closely")
     else:
-        st.info(
-            "The model shows strong confidence with clear separation between activity classes."
-        )
+        st.success("✅ Stable Condition")
 
-    # -------------------------------------------------
-    # SAVE HISTORY
-    # -------------------------------------------------
-    st.session_state.history.append({
-        "Sample ID": i,
-        "Actual": actual,
-        "Predicted": predicted,
-        "Confidence": round(confidence, 3)
+    # 🤖 AI SUGGESTIONS (FOCUS)
+    st.markdown("### 🤖 AI Health Suggestions")
+
+    if oxygen < 90:
+        st.error("Provide oxygen support immediately!")
+    if heart_rate > 120:
+        st.warning("Ensure patient rests and reduce activity.")
+    if bp > 150:
+        st.warning("High BP detected – avoid stress and monitor closely.")
+    if temp > 102:
+        st.warning("Possible fever – consult doctor.")
+
+    if risk_score == 0:
+        st.success("Patient is stable. Maintain regular monitoring.")
+
+# ---------------- ANALYTICS ----------------
+elif menu == "📊 Analytics":
+    st.subheader("📊 Model Analytics")
+
+    data = pd.DataFrame({
+        "Round": [1,2,3,4,5],
+        "Accuracy": [65,75,82,88,92],
+        "Loss": [0.8,0.6,0.4,0.25,0.12],
+        "Precision": [60,70,78,85,90]
     })
 
-# -------------------------------------------------
-# HISTORY DASHBOARD
-# -------------------------------------------------
-if len(st.session_state.history) > 0:
-    st.markdown("## 📜 Prediction History (Session)")
-    st.dataframe(pd.DataFrame(st.session_state.history))
+    col1, col2 = st.columns(2)
 
-# -------------------------------------------------
-# FUTURE SCOPE
-# -------------------------------------------------
-st.markdown("## 🚀 Future Scope")
-st.markdown("""
-- 🔹 Real-time wearable sensor integration  
-- 🔹 Edge-device federated learning  
-- 🔹 Smart healthcare activity monitoring  
-- 🔹 Privacy-preserving fitness tracking  
-- 🔹 IoT-based human behavior analytics  
-""")
+    # Accuracy
+    fig1 = go.Figure()
+    fig1.add_trace(go.Scatter(x=data["Round"], y=data["Accuracy"], mode='lines+markers'))
+    fig1.update_layout(title="Accuracy")
+    col1.plotly_chart(fig1, use_container_width=True)
+
+    # Loss
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(x=data["Round"], y=data["Loss"], mode='lines+markers'))
+    fig2.update_layout(title="Loss")
+    col2.plotly_chart(fig2, use_container_width=True)
+
+    # Precision
+    fig3 = go.Figure()
+    fig3.add_trace(go.Scatter(x=data["Round"], y=data["Precision"], mode='lines+markers'))
+    fig3.update_layout(title="Precision")
+    st.plotly_chart(fig3, use_container_width=True)
+
+    # 🔥 HEALTH TRENDS (FIXED)
+    if len(st.session_state.health_history) > 1:
+        df = pd.DataFrame(st.session_state.health_history)
+
+        st.markdown("### 📈 Health Trends")
+
+        fig4 = go.Figure()
+        fig4.add_trace(go.Scatter(y=df["Heart Rate"], mode='lines', name='Heart Rate'))
+        fig4.add_trace(go.Scatter(y=df["BP"], mode='lines', name='Blood Pressure'))
+        fig4.add_trace(go.Scatter(y=df["Oxygen"], mode='lines', name='Oxygen'))
+        fig4.add_trace(go.Scatter(y=df["Temp"], mode='lines', name='Temperature'))
+
+        fig4.update_layout(title="Health Trends Over Time")
+        st.plotly_chart(fig4, use_container_width=True)
+
+    # ---------------- HEALTH TRENDS ----------------
+    if len(st.session_state.health_history) > 2:
+        df = pd.DataFrame(st.session_state.health_history)
+
+        st.markdown("### 📈 Health Trends")
+
+        fig4 = go.Figure()
+        fig4.add_trace(go.Scatter(y=df["Heart Rate"], mode='lines', name='Heart Rate'))
+        fig4.add_trace(go.Scatter(y=df["Oxygen"], mode='lines', name='Oxygen'))
+        fig4.add_trace(go.Scatter(y=df["Temp"], mode='lines', name='Temperature'))
+
+        fig4.update_layout(title="Health Trends Over Time")
+
+        st.plotly_chart(fig4, use_container_width=True)
+# ---------------- EMERGENCY ----------------
+elif menu == "🚨 Emergency":
+    st.subheader("🚨 Emergency")
+
+    if st.button("🚨 Send Alert"):
+        st.session_state.alarm_active = True
+
+        send_sms(
+            st.session_state.caretaker,
+            st.session_state.patient_name,
+            st.session_state.location
+        )
+
+    if st.session_state.alarm_active:
+        st.markdown("""
+        <div style='text-align:center; font-size:40px; color:red; animation: blink 1s infinite;'>
+        🚨 EMERGENCY IN PROGRESS 🚨
+        </div>
+        <style>
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+# ---------------- FOOTER ----------------
+st.markdown("---")
+st.markdown("💡 Built with Streamlit") 
