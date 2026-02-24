@@ -3,3 +3,6 @@ pandas
 plotly
 twilio
 matplotlib
+numpy
+joblib
+scikit-learn
